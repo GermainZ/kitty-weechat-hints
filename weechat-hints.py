@@ -15,6 +15,7 @@ def extract_url(text, pos, url_prefix):
     url = ""
     prefix_pos = 0
     start_pos = pos
+    reached_next_message = False
     while True:
         if pos >= len(text):
             break
@@ -23,11 +24,20 @@ def extract_url(text, pos, url_prefix):
         # wrapped message on the next line.
         if (text[pos] == " " and text[pos + 1] == SEPARATOR) or text[pos] == "\n":
             count = 1 if text[pos] == "\n" else 0
+            old_pos = pos
             while True:
                 pos += 1
                 if pos >= len(text):
                     break
                 if text[pos] == SEPARATOR:
+                    # When a line is wrapped, the nick/nick prefix is not
+                    # shown. If it is (i.e. if we don't find a space before the
+                    # separator), then we've reached a new message and it's
+                    # time to stop looking.
+                    if count == SEPARATOR_SKIP_COUNT - 1 and text[pos - 2] != " ":
+                        pos = old_pos
+                        reached_next_message = True
+                        break
                     count += 1
                     if count == SEPARATOR_SKIP_COUNT:
                         pos += 1 + SEPARATOR_SUFFIX_SKIP_COUNT  # Skip "| " portion.
@@ -36,6 +46,8 @@ def extract_url(text, pos, url_prefix):
         elif text[pos] in [" ", "\0"]:
             break
         if pos >= len(text):
+            break
+        if reached_next_message:
             break
         # If the prefix (e.g. "https://") isn't matched, stop searching.
         if prefix_pos < len(url_prefix) - 1 and text[pos] != url_prefix[prefix_pos]:
