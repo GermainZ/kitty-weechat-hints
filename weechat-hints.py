@@ -1,4 +1,13 @@
+# Must be equal to the values of `weechat.look.separator_vertical` and
+# `weechat.look.prefix_suffix`.
 SEPARATOR = "│"
+# How many separators to skip. For very narrow terminals or if you don't use a
+# bufflist, you should probably set this to 2.
+SEPARATOR_SKIP_COUNT = 3
+# How many characters to skip when the last separator (before the continuation
+# of a message) is reached. For very narrow terminals, you should probably set
+# this to 0 as WeeChat doesn't insert spaces after the separator in that case.
+SEPARATOR_SUFFIX_SKIP_COUNT = 1
 
 
 def extract_url(text, pos, url_prefix):
@@ -20,8 +29,8 @@ def extract_url(text, pos, url_prefix):
                     break
                 if text[pos] == SEPARATOR:
                     count += 1
-                    if count == 3:
-                        pos += 2  # Skip "| " portion.
+                    if count == SEPARATOR_SKIP_COUNT:
+                        pos += 1 + SEPARATOR_SUFFIX_SKIP_COUNT  # Skip "| " portion.
                         break
         # The URL is over.
         elif text[pos] in [" ", "\0"]:
