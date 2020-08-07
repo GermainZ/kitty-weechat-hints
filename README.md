@@ -1,10 +1,11 @@
 Description
 ===========
 
-A kitty kitten that aims to act like the native URL hints kitten (bound to
-ctrl+shift+e by default), while supporting WeeChat's line wrapping for URLs.
-The goal is to be able to use URL hints directly without having to go into
-WeeChat's raw mode (bound to meta+l by default) first.
+A [kitty](https://sw.kovidgoyal.net/kitty/) kitten that aims to act like the
+[native URL hints kitten](https://sw.kovidgoyal.net/kitty/kittens/hints.html)
+(bound to `ctrl+shift+e` by default), while supporting WeeChat's line wrapping
+for URLs.  The goal is to be able to use URL hints directly without having to
+go into WeeChat's raw mode (bound to `meta+l` by default) first.
 
 Screenshots
 ===========
