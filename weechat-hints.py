@@ -71,6 +71,8 @@ def mark(text, args, Mark, extra_cli_args, *a):
     while start_pos < len(text):
         # Extract URL, if any.
         start_pos, end_pos, url = extract_url(text, start_pos, "https://")
+        if not url:
+            start_pos, end_pos, url = extract_url(text, start_pos, "http://")
         if url:
             # Return mark info for kitty.
             yield Mark(idx, start_pos, end_pos, url, {})
