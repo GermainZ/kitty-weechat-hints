@@ -31,7 +31,7 @@ directory, for example:
     wget 'https://github.com/GermainZ/kitty-weechat-hints/raw/master/weechat-hints.py'
 
 Once that is done, kitty must be launched as such: `kitty -o 'map
-ctrl+shift+e kitten hints --customize-processing weechat-hints.py' weechat`.
+kitty_mod+e kitten hints --customize-processing weechat-hints.py' weechat`.
 
 The shortcut can be customized, for example `map f1` can be used instead to
 keep the original kitten intact as a backup, and make the WeeChat-aware one
