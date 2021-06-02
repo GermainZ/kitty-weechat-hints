@@ -11,6 +11,15 @@ A [kitty](https://sw.kovidgoyal.net/kitty/) kitten that aims to act like the
 for URLs.  The goal is to be able to use URL hints directly without having to
 go into WeeChat's raw mode (bound to `meta+l` by default) first.
 
+Dependencies
+============
+
+- [Python 3.9+](https://www.python.org/)
+- [wcwidth](https://pypi.org/project/wcwidth/)
+
+… as well as [kitty](https://sw.kovidgoyal.net/kitty/) and
+[WeeChat](https://weechat.org/).
+
 Screenshots
 ===========
 
