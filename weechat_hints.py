@@ -135,16 +135,12 @@ def get_urls(text: str) -> list[tuple[int, int, str]]:
                     area_start - padding_start : area_end - padding_end
                 ]
                 area = areas[TextAreaKey(area_start, area_end)]
-                area.lines.append(
-                    TextAreaLine(line)
-                )
+                area.lines.append(TextAreaLine(line))
                 if len(line) > area.len_line:
                     area.len_line = len(line)
             else:
                 # The empty string will be replaced with spaces later.
-                areas[TextAreaKey(area_start, area_end)].lines.append(
-                    TextAreaLine("")
-                )
+                areas[TextAreaKey(area_start, area_end)].lines.append(TextAreaLine(""))
     # For empty lines, replace '' with an appropriate number of spaces.
     # For lines that came up short (usually due to symbol withlen != wcwidth), pad them.
     for area in areas.values():
@@ -172,6 +168,21 @@ def get_urls(text: str) -> list[tuple[int, int, str]]:
                 end_num_prev_lines -= 1
             end_char = match.end() - end_num_prev_lines * len_line
 
+            # If the URL is sent in message A and is just long enough to fill the full
+            # line, then message B will be taken as the continuation since there are no
+            # spaces between the two messages.  To handle that, we check if the weechat
+            # prefix (nick) is empty or not. If not (meaning a new message has begun),
+            # we decrease the end position accordingly and stop.
+            url = match.group(0)
+            for line_num in range(start_line_num + 1, end_line_num + 1):
+                weechat_prefix = lines[line_num - 1][area_start - 2 : area_start]
+                if weechat_prefix.strip():
+                    end_line_num = line_num - 1
+                    end_num_prev_lines = max(0, end_line_num - 1)
+                    url = url[:-end_char]
+                    end_char = len(area.lines[start_line_num - 1].text)
+                    break
+
             padding_start = 1 if lines[start_line_num - 1][area_start + 1] == " " else 0
             padding_end = 1 if lines[start_line_num - 1][area_start + 1] == " " else 0
 
@@ -193,7 +204,7 @@ def get_urls(text: str) -> list[tuple[int, int, str]]:
             end = global_end_char
             # Postprocessing to handle things like trailing commas.
             context = area_text[match.start() - CONTEXT_CHARS : match.start()]
-            url = f"{context: <{CONTEXT_CHARS}}{match.group(0)}"
+            url = f"{context: <{CONTEXT_CHARS}}{url}"
             _, end_diff = postprocess_url(url, CONTEXT_CHARS, len(url))
             end -= len(url) - end_diff
 
