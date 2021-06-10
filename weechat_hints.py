@@ -5,11 +5,10 @@
 # pylint: disable=line-too-long
 
 import collections
+from dataclasses import dataclass, field
 import itertools
 import math
 import re
-
-from wcwidth import wcwidth  # type: ignore
 
 
 # Must be equal to the values of `weechat.look.separator_vertical` and
@@ -47,6 +46,23 @@ CLOSING_BRACKET_MAP = {
 OPENING_BRACKETS = "".join(CLOSING_BRACKET_MAP)
 
 
+@dataclass
+class TextAreaLine:
+    text: str
+
+
+@dataclass(frozen=True)
+class TextAreaKey:
+    start_col: int
+    end_col: int
+
+
+@dataclass
+class TextArea:
+    lines: list[TextAreaLine] = field(default_factory=list)
+    len_line: int = 0
+
+
 # postprocess_url() code from <https://github.com/kovidgoyal/kitty/blob/2e7b68bf74f94622875679398365282f991cb1eb/kittens/hints/main.py#L231>
 def postprocess_url(text: str, s: int, e: int) -> tuple[int, int]:
     if s > 4 and text[s - 5 : s] == "link:":  # asciidoc URLs.
@@ -79,32 +95,23 @@ def get_urls(text: str) -> list[tuple[int, int, str]]:
         lambda: {0, num_cols}
     )
     for line_num, line in enumerate(lines):
-        area_padding_sum = 0
         for col_num, char in enumerate(line):
-            # We check the wcwidth to handle special characters such as emoji,
-            # which cause WeeChat to print less space characters before the
-            # next separator.
-            padding = wcwidth(char) - len(char)
-            if padding > 0:
-                paddings[line_num][col_num] = padding
-                area_padding_sum += padding
             if char == WEECHAT_SEPARATOR:
-                separators_positions_tmp[line_num].add(col_num + area_padding_sum)
-                area_padding_sum = 0
+                separators_positions_tmp[line_num].add(col_num)
     separators_positions: dict[int, list[int]] = {
         line_num: sorted(list(col_nums))
         for line_num, col_nums in separators_positions_tmp.items()
     }
     # An area exists between separators that seem consistent, for
     # example: the topic bar, the chat area, the nicklist, etc.
-    areas: dict[tuple[int, int], list[tuple[int, str]]] = collections.defaultdict(list)
+    # areas: dict[tuple[int, int], list[tuple[int, str]]] = collections.defaultdict(list)
+    areas: dict[TextAreaKey, TextArea] = collections.defaultdict(TextArea)
     pos_separators: list[list[tuple[int, int]]] = [
         list(zip(pos, pos[1:])) for pos in separators_positions.values()
     ]
     all_areas_boundaries = list(set(itertools.chain(*pos_separators)))
     for line_num, col_nums in separators_positions.items():
         area_boundaries = list(zip(col_nums, col_nums[1:]))
-        area_padding_sum = 0
         for area_start, area_end in all_areas_boundaries:
             padding_start = 0
             padding_end = 0
@@ -115,7 +122,6 @@ def get_urls(text: str) -> list[tuple[int, int, str]]:
                         padding_start += col_padding
                     if area_end > padding_col_num:
                         padding_end += col_padding
-            padding_end_og = padding_end
             padding_start -= 1
             if lines[line_num][area_start + 1] == " ":
                 padding_start -= 1
@@ -125,73 +131,63 @@ def get_urls(text: str) -> list[tuple[int, int, str]]:
             # If our area does not match the current area boundaries we are
             # checking, append an empty line instead.
             if (area_start, area_end) in area_boundaries:
-                areas[(area_start, area_end)].append(
-                    (
-                        padding_end_og,
-                        lines[line_num][
-                            area_start - padding_start : area_end - padding_end
-                        ],
-                    )
+                line = lines[line_num][
+                    area_start - padding_start : area_end - padding_end
+                ]
+                area = areas[TextAreaKey(area_start, area_end)]
+                area.lines.append(
+                    TextAreaLine(line)
                 )
+                if len(line) > area.len_line:
+                    area.len_line = len(line)
             else:
-                areas[(area_start, area_end)].append(
-                    (
-                        padding_end_og,
-                        " " * (area_end - padding_end - area_start + padding_start),
-                    )
+                # The empty string will be replaced with spaces later.
+                areas[TextAreaKey(area_start, area_end)].lines.append(
+                    TextAreaLine("")
                 )
+    # For empty lines, replace '' with an appropriate number of spaces.
+    # For lines that came up short (usually due to symbol withlen != wcwidth), pad them.
+    for area in areas.values():
+        for area_line in area.lines:
+            if not area_line.text:
+                area_line.text = " " * area.len_line
+            if len(area_line.text) < area.len_line:
+                area_line.text = f"{area_line.text:{area.len_line}}"
     # Check each area for URLs.
-    for (area_start, area_end), area in areas.items():
-        len_line = area_end - area_start - 2 - (1 if area_end < num_cols else 0)
-        area_text = "".join([item[1] for item in area])
+    # for (area_start, area_end), area in areas.items():
+    for area_key, area in areas.items():
+        area_start = area_key.start_col
+        area_end = area_key.end_col
+        len_line = area.len_line
+        area_text = "".join([line.text for line in area.lines])
         # Match the concatenated text of the area for URLs.
         for match in REGEX.finditer(area_text):
-            # For each match, we get its original starting/ending character
-            # positions.
-            start_num_prev_lines = int(match.start() / len_line)
-            start_line_num = math.ceil(match.start() / len_line)
+            # For each match, we get its original starting/ending character positions.
+            start_line_num = int(match.start() / len_line) + 1
+            start_num_prev_lines = max(0, start_line_num - 1)
             start_char = match.start() - start_num_prev_lines * len_line
-            end_num_prev_lines = int(match.end() / len_line)
-            end_line_num = math.ceil(match.end() / len_line)
+            end_line_num = int(match.end() / len_line) + 1
+            end_num_prev_lines = max(0, end_line_num - 1)
             if match.end() % len_line == 0:
                 end_num_prev_lines -= 1
             end_char = match.end() - end_num_prev_lines * len_line
 
-            padding_start = 1
-            padding_end = 1
-            for line_num in range(start_line_num - 1):
-                line_padding = area[line_num][0]
-                padding_start += line_padding
-                padding_end += line_padding
-            line_paddings = paddings.get(start_line_num - 1, {})
-            for padding_col_num, col_padding in line_paddings.items():
-                if (
-                    line_num + 1 == start_line_num
-                    and (area_start + start_char) > padding_col_num
-                ):
-                    padding_start += col_padding
-                if (
-                    line_num + 1 == end_line_num
-                    and (area_start + end_char) > padding_col_num
-                ):
-                    padding_end += col_padding
+            padding_start = 1 if lines[start_line_num - 1][area_start + 1] == " " else 0
+            padding_end = 1 if lines[start_line_num - 1][area_start + 1] == " " else 0
 
-            # Position = chars in previous lines + chars before this area
-            # starts + chars so far in this line in this area + padding due to
-            # removing 1 whitespace char per line + special chars padding.
             global_start_char = (
-                start_num_prev_lines * num_cols
-                + area_start
-                + start_char
-                + start_line_num
-                + padding_start
+                start_num_prev_lines * (num_cols + 1)  # Chars in previous lines
+                + area_start  # Chars before the separator
+                + 1  # Separator char
+                + padding_start  # Padding
+                + start_char  # Chars before the URL we matched
             )
             global_end_char = (
-                end_num_prev_lines * num_cols
+                end_num_prev_lines * (num_cols + 1)
                 + area_start
-                + end_char
-                + end_line_num
+                + 1
                 + padding_end
+                + end_char
             )
             start = global_start_char
             end = global_end_char
@@ -201,15 +197,6 @@ def get_urls(text: str) -> list[tuple[int, int, str]]:
             _, end_diff = postprocess_url(url, CONTEXT_CHARS, len(url))
             end -= len(url) - end_diff
 
-            # Fix for some edge cases that cause the starting position to be
-            # offset.
-            for i in range(3):
-                if (
-                    text[start] != url[CONTEXT_CHARS]
-                    and text[start - i] == url[CONTEXT_CHARS]
-                ):
-                    start -= i
-                    break
             results.append((start, end, url[CONTEXT_CHARS:end_diff]))
 
     return list(sorted(results))

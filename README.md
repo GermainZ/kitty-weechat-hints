@@ -15,7 +15,6 @@ Dependencies
 ============
 
 - [Python 3.9+](https://www.python.org/)
-- [wcwidth](https://pypi.org/project/wcwidth/)
 
 … as well as [kitty](https://sw.kovidgoyal.net/kitty/) and
 [WeeChat](https://weechat.org/).
