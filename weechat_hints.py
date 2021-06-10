@@ -179,7 +179,8 @@ def get_urls(text: str) -> list[tuple[int, int, str]]:
                 if weechat_prefix.strip():
                     end_line_num = line_num - 1
                     end_num_prev_lines = max(0, end_line_num - 1)
-                    url = url[:-end_char]
+                    if end_char < len(url):
+                        url = url[:-end_char]
                     end_char = len(area.lines[start_line_num - 1].text)
                     break
 
