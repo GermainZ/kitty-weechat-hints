@@ -32,7 +32,7 @@ URL_PREFIXES = (
     "news",
     "git",
 )
-REGEX = re.compile(rf"(?:{'|'.join(URL_PREFIXES)}):\/\/[^{URL_DELIMITERS}]{{3,}}")
+REGEX = re.compile(rf"(?:{'|'.join(URL_PREFIXES)}):\/\/[^{URL_DELIMITERS}|:]{{3,}}")
 
 CLOSING_BRACKET_MAP = {
     "(": ")",
